@@ -1,16 +1,42 @@
+import 'dotenv/config';
 import express from "express";
 import { Server } from "socket.io";
 import http from "http";
-import dotenv from "dotenv";
 import { pool } from "./db.js";
+import session from "express-session";
+import {Strategy} from "passport-local";
+import passport from "passport";
+import bcrypt from "bcryptjs";
+import path from "path";
+import { fileURLToPath } from "url";
 
-dotenv.config();
-const upvote_id=1;// for now till auth is established
 const app=express();
+app.use(express.json()); 
+
 const server = http.createServer(app);
 const port=process.env.PORT|| 5000;
-app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+app.use(session({
+    secret:"kavach_session",
+    resave:false,
+    saveUninitialized:false
+}));
+app.use(passport.initialize());
+app.use(passport.session());
+const salt=12;
+
+
+app.get("/land",(req,res)=>{
+    if(req.isAuthenticated()){
+        res.sendFile(path.join(__dirname, "../frontend/pages/index.html"));
+    }
+    else{
+         res.sendFile(path.join(__dirname, "../frontend/pages/login.html"));
+    }
+});
+
+
 const io=new Server(server);
 io.on("connection",(client)=>{
     client.on("event",(data)=>{
@@ -20,11 +46,68 @@ io.on("connection",(client)=>{
     console.log("User disconnected");
     });
 });
+passport.use(new Strategy ( async function verify(username,password,cb){
+    try{
+        const result =await pool.query('SELECT * FROM users WHERE email=$1',[username]);
+        if(result.rowCount>0){
+            const user=result.rows[0];
+            const stored_pass=user.password;
+            bcrypt.compare(password,stored_pass, (err,result)=>{
+                if(err){
+                    return cb(err)
+                }
+                else{
+                    if(result){
+                        return cb(null,user)
+                    }
+                    else{
+                        return cb("user not found");
+                    }
+                }
 
-app.get("/",(req,res)=>{
-    res.send("<h1>API is running</h1>");
+            })
+        }
+        else{
+              return cb(null, false, { message: "User not found" });
+        }}
+        catch(err){
+            return cb(err);
+        } 
+}));
+passport.serializeUser((user,cb)=>{
+            cb(null,user);
+        });
+        passport.deserializeUser((user,cb)=>{
+            cb(null,user);
+        });
+function isAuthenticated(req, res, next){
+    if(req.isAuthenticated()){
+        return next();
+    }
+    res.redirect("/login");
+}
+
+
+app.get("/", (req, res) => {
+    res.sendFile(path.join(__dirname, "../frontend/pages/index.html"));
 });
-app.get("/api/alerts",async (req,res)=>{
+
+app.get("/login", (req, res) => {
+    res.sendFile(path.join(__dirname, "../frontend/pages/login.html"));
+});
+
+app.get("/register", (req, res) => {
+    res.sendFile(path.join(__dirname, "../frontend/pages/register.html"));
+});
+app.get("/dashboard", isAuthenticated, (req, res) => {
+    res.sendFile(path.join(__dirname, "../frontend/pages/dashboard.html"));
+});
+
+app.get("/map",isAuthenticated, (req, res) => {
+    res.sendFile(path.join(__dirname, "../frontend/pages/map.html"));
+});
+
+app.get("/api/alerts",isAuthenticated,async (req,res)=>{
     try{
         const alerts= await pool.query("SELECT * FROM alerts");
         res.json(alerts.rows);
@@ -33,7 +116,7 @@ app.get("/api/alerts",async (req,res)=>{
         res.status(500).json({error:err.message});
     }
 });
-app.post("/api/alerts", async (req,res)=>{
+app.post("/api/alerts", isAuthenticated, async (req,res)=>{
     try{
     const title =req.body["title"];
     const type=req.body["type"];
@@ -42,14 +125,14 @@ app.post("/api/alerts", async (req,res)=>{
     const longitude=20.4284;
     const remarks=req.body["remarks"];
     const status=req.body["status"];
-    const user_id=1;
+    const user_id=req.user.id;
     const qer = await pool.query('INSERT INTO alerts (title, type, location, latitude, longitude, remarks, status, user_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *',[title, type, location, latitude, longitude, remarks, status, user_id,]);
     res.json(qer.rows[0]);}
     catch(err){
         res.status(500).json({error:err.message});
     }
 });
-app.get("/api/alerts/:id",async (req,res)=>{
+app.get("/api/alerts/:id", isAuthenticated,async (req,res)=>{
     try{
         const i=req.params.id;
         const qer=await pool.query('SELECT * FROM alerts WHERE id =$1',[i]);
@@ -65,7 +148,7 @@ app.get("/api/alerts/:id",async (req,res)=>{
     }
 });
 
-app.delete("/api/alerts/:id", async (req,res)=>{
+app.delete("/api/alerts/:id",isAuthenticated,async (req,res)=>{
    try{ const i=req.params.id;
     const qer=await pool.query('DELETE FROM alerts WHERE id=$1',[i]);
     if(qer.rowCount === 0){
@@ -80,9 +163,10 @@ app.delete("/api/alerts/:id", async (req,res)=>{
     }
 });
 
-app.patch("/api/alerts/:id/upvote", async (req,res)=>{
+app.patch("/api/alerts/:id/upvote",isAuthenticated,async (req,res)=>{
     try{
     const i=req.params.id;
+    const upvote_id = req.user.id; 
     const qr= await pool.query('SELECT * FROM upvotes WHERE user_id=$1 AND alert_id=$2',[upvote_id,i]);
     if(qr.rowCount != 0){
         await pool.query('DELETE FROM upvotes WHERE user_id=$1 AND alert_id=$2',[upvote_id,i]);
@@ -98,10 +182,34 @@ app.patch("/api/alerts/:id/upvote", async (req,res)=>{
         res.status(500).json({error:err.message});
     }
 });
-
-app.post("/api/alerts/:id/comments", async (req,res)=>{
+app.post("/api/alerts/:id/flag",isAuthenticated,async (req,res)=>{
     try{
         const i=req.params.id;
+        const upvote_id=req.user.id;
+        const qr= await pool.query('SELECT * FROM flags WHERE alert_id=$1 AND user_id=$2',[i,upvote_id]);
+        if(qr.rowCount>0){
+            await pool.query('DELETE FROM flags WHERE user_id=$1 AND alert_id=$2',[upvote_id,i]);
+            await pool.query('UPDATE alerts SET flag_count=flag_count-1 WHERE id=$1',[i]);
+         }
+         else{
+            await pool.query('INSERT INTO flags(user_id,alert_id) VALUES ($1,$2)',[upvote_id,i]);
+        await pool.query('UPDATE alerts SET flag_count=flag_count+1 WHERE id=$1',[i]);
+
+         }
+         const al=await pool.query('SELECT flag_count FROM alerts WHERE id=$1',[i]);
+         const count=al.rows[0].flag_count;
+         if(count>=5){
+        await pool.query("UPDATE alerts SET status='under_review' WHERE id=$1",[i]);
+         res.json({message: "flag updated", flag_count: count});
+    }
+    }catch(err){
+        res.status(500).json({error:err.message});
+    }
+});
+app.post("/api/alerts/:id/comments",isAuthenticated, async (req,res)=>{
+    try{
+        const i=req.params.id;
+        const upvote_id = req.user.id; 
         const comm=req.body.text;
         await pool.query('INSERT INTO comments(alert_id,user_id,text) VALUES ($1,$2,$3)',[i,upvote_id,comm]);
         res.status(200).json({message:comm});
@@ -110,6 +218,50 @@ app.post("/api/alerts/:id/comments", async (req,res)=>{
         res.status(500).json({error: err.message});
     }
 });
+app.post("/api/auth/login",passport.authenticate("local",{
+    successRedirect:"/dashboard",
+    failureRedirect:"/login"
+}));
+
+app.post("/api/auth/register",async (req,res)=>{
+    console.log(req.body);
+    const email=req.body.username;
+    const password=req.body.password;
+    const name=req.body.name;
+
+    try{
+        if(!email.endsWith("@kiit.ac.in")){
+    return res.send("Only KIIT emails allowed!");
+        }
+        const check=await pool.query('SELECT * FROM users WHERE email=$1',[email]);
+        if(check.rowCount>0){
+            res.send("Acoount already exists");
+        }
+        else{
+            bcrypt.hash(password,salt,async(err,hash)=>{
+                if(err){
+                     return res.send(err.message);
+                }
+                const result= await pool.query('INSERT INTO users(name,email,password) VALUES ($1,$2,$3) RETURNING *',[name,email,hash]);
+                const user=result.rows[0];
+                req.logIn(user,(err)=>{
+                    if(err){return res.send(err);}
+                    res.redirect("/dashboard")
+                });
+            });
+        }
+    }
+    catch(err){
+        res.send(err);
+    }
+});
+app.get('/logout', function(req, res, next){
+  req.logout(function(err) {
+    if (err) { return next(err); }
+    res.redirect('/login');
+  });
+});
+
 server.listen(port, () => {
   console.log("Server running on port 5000");
 });
