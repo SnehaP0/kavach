@@ -9,6 +9,7 @@ import passport from "passport";
 import bcrypt from "bcryptjs";
 import path from "path";
 import { fileURLToPath } from "url";
+import cron from 'node-cron';
 
 const app=express();
 app.use(express.json()); 
@@ -90,6 +91,13 @@ function isAuthenticated(req, res, next){
 }
 
 
+cron.schedule('0 * * * *', async () => {
+    await pool.query(
+        "DELETE FROM alerts WHERE expires_at < NOW()"
+    );
+    console.log('Expired alerts cleaned up');
+});
+
 app.get("/", (req, res) => {
     res.sendFile(path.join(__dirname, "../frontend/pages/index.html"));
 });
@@ -137,8 +145,8 @@ app.post("/api/alerts", isAuthenticated, async (req,res)=>{
     const latitude=req.body.latitude;
     const longitude=req.body.longitude;
     const remarks=req.body.remarks;
-    const status=req.body.status;
     const user_id=req.user.id;
+    const status = 'active';
     const qer = await pool.query('INSERT INTO alerts (title, type, location, latitude, longitude, remarks, status, user_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *',[title, type, location, latitude, longitude, remarks, status, user_id,]);
     res.json(qer.rows[0]);
     const io = req.app.get('io');

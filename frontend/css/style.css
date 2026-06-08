@@ -1,0 +1,45 @@
+#map{height:180px;
+width:100%;}
+.campus {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    font-weight: bold;
+    color: white;
+    font-size: 11px;
+    text-shadow: 1px 1px 2px black;
+    white-space: nowrap;
+}
+#rprt {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    z-index: 1000; /* must be above map */
+    background: #e74c3c;
+    color: white;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: bold;
+}
+
+#form {
+    position: absolute;
+    top: 70px;
+    right: 20px;
+    z-index: 1000;
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+}
+.hidden{
+    display:none;
+}
+.custom-marker {
+    background: transparent;
+    border: none;
+    font-size: 24px;
+    text-align: center;
+}
