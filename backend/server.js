@@ -18,10 +18,11 @@ const port=process.env.PORT|| 5000;
 app.use(express.urlencoded({ extended: true }));
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 app.use(session({
-    secret:"kavach_session",
+    secret:process.env.SESSION_SECRET,
     resave:false,
     saveUninitialized:false
 }));
+app.use(express.static(path.join(__dirname, "../frontend")));
 app.use(passport.initialize());
 app.use(passport.session());
 const salt=12;
@@ -38,6 +39,7 @@ app.get("/land",(req,res)=>{
 
 
 const io=new Server(server);
+app.set('io', io);
 io.on("connection",(client)=>{
     client.on("event",(data)=>{
         console.log(data);
@@ -106,6 +108,17 @@ app.get("/dashboard", isAuthenticated, (req, res) => {
 app.get("/map",isAuthenticated, (req, res) => {
     res.sendFile(path.join(__dirname, "../frontend/pages/map.html"));
 });
+app.get('/api/alerts/my', isAuthenticated, async (req, res) => {
+    try{
+        const alerts = await pool.query(
+            'SELECT * FROM alerts WHERE user_id=$1 ORDER BY created_at DESC',
+            [req.user.id]
+        );
+        res.json(alerts.rows);
+    } catch(err){
+        res.status(500).json({error: err.message});
+    }
+});
 
 app.get("/api/alerts",isAuthenticated,async (req,res)=>{
     try{
@@ -118,16 +131,19 @@ app.get("/api/alerts",isAuthenticated,async (req,res)=>{
 });
 app.post("/api/alerts", isAuthenticated, async (req,res)=>{
     try{
-    const title =req.body["title"];
-    const type=req.body["type"];
-    const location=req.body["location"];
-    const latitude=19.0760;
-    const longitude=20.4284;
-    const remarks=req.body["remarks"];
-    const status=req.body["status"];
+    const title =req.body.title;
+    const type=req.body.type;
+    const location=req.body.location;
+    const latitude=req.body.latitude;
+    const longitude=req.body.longitude;
+    const remarks=req.body.remarks;
+    const status=req.body.status;
     const user_id=req.user.id;
     const qer = await pool.query('INSERT INTO alerts (title, type, location, latitude, longitude, remarks, status, user_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *',[title, type, location, latitude, longitude, remarks, status, user_id,]);
-    res.json(qer.rows[0]);}
+    res.json(qer.rows[0]);
+    const io = req.app.get('io');
+    io.emit('receive-alert', qer.rows[0]);
+    }
     catch(err){
         res.status(500).json({error:err.message});
     }
@@ -199,9 +215,9 @@ app.post("/api/alerts/:id/flag",isAuthenticated,async (req,res)=>{
          const al=await pool.query('SELECT flag_count FROM alerts WHERE id=$1',[i]);
          const count=al.rows[0].flag_count;
          if(count>=5){
-        await pool.query("UPDATE alerts SET status='under_review' WHERE id=$1",[i]);
+        await pool.query("UPDATE alerts SET status='under_review' WHERE id=$1",[i]);}
          res.json({message: "flag updated", flag_count: count});
-    }
+    
     }catch(err){
         res.status(500).json({error:err.message});
     }
