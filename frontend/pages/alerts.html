@@ -1,0 +1,111 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'DM Sans',sans-serif;background:#0a0f0d;color:#e8f0eb;min-height:100vh;}
+
+/* NAV */
+nav{display:flex;justify-content:space-between;align-items:center;padding:1rem 1.5rem;border-bottom:0.5px solid rgba(255,255,255,0.08);position:sticky;top:0;background:#0a0f0d;z-index:100;}
+.logo{font-family:'Syne',sans-serif;font-weight:800;font-size:1.1rem;color:#4ade80;}
+.logo span{color:#e8f0eb;}
+.nav-links{display:flex;gap:1.5rem;align-items:center;}
+.nav-links a{color:rgba(255,255,255,0.45);text-decoration:none;font-size:0.85rem;}
+.nav-links a.active{color:#4ade80;}
+.nav-links a:hover{color:#e8f0eb;}
+.nav-right{display:flex;align-items:center;gap:0.75rem;}
+.report-btn{background:#4ade80;color:#0a0f0d;border:none;padding:0.45rem 1rem;border-radius:6px;font-size:0.82rem;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;text-decoration:none;}
+
+/* PAGE HEADER */
+.page-header{padding:1.5rem 1.5rem 1rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.75rem;}
+.page-title{font-family:'Syne',sans-serif;font-size:1.3rem;font-weight:700;color:#f0f7f2;}
+.live-badge{display:inline-flex;align-items:center;gap:5px;font-size:0.72rem;color:rgba(255,255,255,0.35);}
+.live-dot{width:6px;height:6px;background:#4ade80;border-radius:50%;animation:pulse 1.5s infinite;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.3;}}
+
+/* FILTERS */
+.filters{padding:0 1.5rem 1rem;display:flex;gap:0.4rem;flex-wrap:wrap;}
+.filter-btn{background:transparent;border:0.5px solid rgba(255,255,255,0.12);color:rgba(255,255,255,0.45);padding:0.3rem 0.85rem;border-radius:100px;font-size:0.75rem;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all 0.15s;}
+.filter-btn.active{background:rgba(74,222,128,0.12);border-color:rgba(74,222,128,0.4);color:#4ade80;}
+.filter-btn:hover{border-color:rgba(255,255,255,0.3);color:#e8f0eb;}
+
+/* STATS ROW */
+.stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:0.6rem;padding:0 1.5rem 1.2rem;}
+.stat-card{background:#0f1a14;border:0.5px solid rgba(255,255,255,0.06);border-radius:10px;padding:0.75rem 1rem;}
+.stat-num{font-family:'Syne',sans-serif;font-size:1.3rem;font-weight:800;}
+.stat-num.green{color:#4ade80;}
+.stat-num.red{color:#f87171;}
+.stat-num.amber{color:#fbbf24;}
+.stat-label{font-size:0.7rem;color:rgba(255,255,255,0.3);margin-top:2px;}
+
+/* ALERTS GRID */
+.alerts-container{padding:0 1.5rem 2rem;}
+.alerts-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:0.75rem;}
+
+/* ALERT CARD */
+.alert-card{background:#0f1a14;border:0.5px solid rgba(255,255,255,0.06);border-radius:12px;padding:1.1rem;cursor:pointer;transition:all 0.15s;text-decoration:none;display:block;}
+.alert-card:hover{border-color:rgba(255,255,255,0.15);transform:translateY(-1px);}
+.card-header{display:flex;align-items:flex-start;justify-content:space-between;gap:0.5rem;margin-bottom:0.6rem;}
+.type-badge{font-size:0.68rem;font-weight:500;padding:3px 8px;border-radius:100px;white-space:nowrap;}
+.emergency{background:rgba(248,113,113,0.12);color:#f87171;border:0.5px solid rgba(248,113,113,0.2);}
+.unsafe{background:rgba(251,191,36,0.12);color:#fbbf24;border:0.5px solid rgba(251,191,36,0.2);}
+.lost{background:rgba(96,165,250,0.12);color:#60a5fa;border:0.5px solid rgba(96,165,250,0.2);}
+.found{background:rgba(74,222,128,0.12);color:#4ade80;border:0.5px solid rgba(74,222,128,0.2);}
+.time{font-size:0.7rem;color:rgba(255,255,255,0.25);}
+.card-title{font-size:0.9rem;font-weight:500;color:#e8f0eb;line-height:1.3;margin-bottom:0.5rem;}
+.card-footer{display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;}
+.location{display:flex;align-items:center;gap:4px;font-size:0.75rem;color:rgba(255,255,255,0.35);}
+.upvote-btn{margin-left:auto;display:flex;align-items:center;gap:4px;background:transparent;border:0.5px solid rgba(255,255,255,0.1);border-radius:100px;padding:3px 8px;font-size:0.72rem;color:rgba(255,255,255,0.35);cursor:pointer;font-family:'DM Sans',sans-serif;transition:all 0.15s;}
+.upvote-btn:hover{border-color:rgba(74,222,128,0.4);color:#4ade80;}
+.upvote-btn.upvoted{border-color:rgba(74,222,128,0.4);color:#4ade80;background:rgba(74,222,128,0.08);}
+.type-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:4px;}
+.dot-red{background:#f87171;}
+.dot-amber{background:#fbbf24;}
+.dot-blue{background:#60a5fa;}
+.dot-green{background:#4ade80;}
+
+/* EMPTY STATE */
+.empty{text-align:center;padding:3rem;color:rgba(255,255,255,0.25);font-size:0.85rem;}
+
+/* SEARCH */
+.search-bar{padding:0 1.5rem 1rem;}
+.search-input{width:100%;background:#0f1a14;border:0.5px solid rgba(255,255,255,0.1);border-radius:8px;padding:0.6rem 1rem;color:#e8f0eb;font-size:0.85rem;font-family:'DM Sans',sans-serif;outline:none;}
+.search-input::placeholder{color:rgba(255,255,255,0.25);}
+.search-input:focus{border-color:rgba(74,222,128,0.3);}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="logo">Kav<span>ach</span></div>
+  <div class="nav-links">
+    <a href="/map">Map</a>
+    <a href="/api/alerts" class="active">Alerts</a>
+    <a href="/dashboard">My Alerts</a>
+    <a href="/logout">Logout</a>
+  </div>
+  <div class="nav-right">
+    <a href="/map" class="report-btn">+ Report</a>
+  </div>
+</nav>
+
+<div class="page-header">
+  <div>
+    <div class="page-title">Campus Alerts</div>
+  </div>
+  <div class="live-badge"><div class="live-dot"></div> Live updates</div>
+</div>
+
+<div class="stats-row">
+  <div class="stat-card"><div class="stat-num red" id="activenum">0</div><div class="stat-label">Active alerts</div></div>
+  <div class="stat-card"><div class="stat-num amber" id="undernum">0</div><div class="stat-label">Under review</div></div>
+  <div class="stat-card"><div class="stat-num green" id="oknum">0</div><div class="stat-label">Resolved today</div></div>
+</div>
+<div class="alerts-container">
+  <div class="alerts-grid" id="alertsGrid"></div>
+</div>
+<script src="../js/allalerts.js"></script>
+</body>
+</html>

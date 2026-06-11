@@ -1,0 +1,144 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Kavach — My Alerts</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+    <nav>
+  <div style="display:flex;align-items:center;gap:0.5rem;">
+    <div class="logo">Kav<span>ach</span></div>
+  </div>
+  <div class="nav-links">
+    <a href="/map">Map</a>
+    <a href="/alerts">Alerts</a>
+    <a href="/dashboard" class="active">My Alerts</a>
+  </div>
+  <div class="nav-right">
+    <a href="/map" class="report-btn">+ Report</a>
+    <a href="/logout" class="logout-link">Logout</a>
+  </div>
+</nav>
+
+<div class="container">
+
+  <div class="page-header">
+    <div class="greeting">Welcome back</div>
+    <div class="page-title">My Alerts</div>
+  </div>
+
+  <div class="stats-row">
+    <div class="stat-card"><div class="stat-num red" id="activeCount">0</div><div class="stat-label">Active</div></div>
+    <div class="stat-card"><div class="stat-num muted" id="expiredCount">0</div><div class="stat-label">Expired</div></div>
+    <div class="stat-card"><div class="stat-num green" id="upvoteCount">0</div><div class="stat-label">Total upvotes</div></div>
+  </div>
+
+  <!-- ACTIVE ALERTS -->
+  <div class="section-header">
+    <span class="section-label">Active alerts</span>
+    <span class="section-count" id="activeBadge">0</span>
+  </div>
+  <div class="alerts-list" id="activeAlerts">
+    <div class="empty"><div class="empty-icon">✅</div>No active alerts</div>
+  </div>
+
+  <!-- EXPIRED ALERTS -->
+  <div class="section-header">
+    <span class="section-label">Expired alerts</span>
+    <span class="section-count" id="expiredBadge">0</span>
+  </div>
+  <div class="alerts-list" id="expiredAlerts">
+    <div class="empty"><div class="empty-icon">📭</div>No expired alerts</div>
+  </div>
+
+</div>
+
+<script>
+const typeColors = {
+  'Emergency': 'dot-red',
+  'nonemergency': 'dot-amber',
+  'lost': 'dot-blue',
+  'found': 'dot-green'
+};
+const typeBadges = {
+  'Emergency': 'emergency',
+  'nonemergency': 'unsafe',
+  'lost': 'lost',
+  'found': 'found'
+};
+
+function timeAgo(dateStr) {
+  const diff = Math.floor((Date.now() - new Date(dateStr)) / 1000);
+  if(diff < 60) return `${diff}s ago`;
+  if(diff < 3600) return `${Math.floor(diff/60)}m ago`;
+  if(diff < 86400) return `${Math.floor(diff/3600)}h ago`;
+  return `${Math.floor(diff/86400)}d ago`;
+}
+
+async function deleteAlert(id) {
+  if(!confirm('Delete this alert?')) return;
+  const res = await fetch(`/api/alerts/${id}`, { method: 'DELETE' });
+  if(res.ok) loadMyAlerts();
+}
+
+async function loadMyAlerts() {
+  try {
+    const res = await fetch('/api/alerts/my');
+    const alerts = await res.json();
+
+    const active = alerts.filter(a => a.status === 'active');
+    const expired = alerts.filter(a => a.status !== 'active');
+
+    document.getElementById('activeCount').textContent = active.length;
+    document.getElementById('expiredCount').textContent = expired.length;
+    document.getElementById('activeBadge').textContent = active.length;
+    document.getElementById('expiredBadge').textContent = expired.length;
+    document.getElementById('upvoteCount').textContent = alerts.reduce((sum, a) => sum + (a.upvote_count || 0), 0);
+
+    renderAlerts('activeAlerts', active, false);
+    renderAlerts('expiredAlerts', expired, true);
+  } catch(err) {
+    console.error(err);
+  }
+}
+
+function renderAlerts(containerId, alerts, isExpired) {
+  const container = document.getElementById(containerId);
+  if(alerts.length === 0) {
+    container.innerHTML = `<div class="empty"><div class="empty-icon">${isExpired ? '📭' : '✅'}</div>${isExpired ? 'No expired alerts' : 'No active alerts'}</div>`;
+    return;
+  }
+  container.innerHTML = alerts.map(a => `
+    <div class="alert-card ${isExpired ? 'expired' : ''}">
+      <div class="card-top">
+        <div class="card-left">
+          <div class="type-dot ${typeColors[a.type] || 'dot-amber'}"></div>
+          <div class="alert-title">${a.title}</div>
+        </div>
+        <span class="type-badge ${typeBadges[a.type] || 'unsafe'}">${a.type}</span>
+      </div>
+      <div class="card-footer">
+        <span class="meta">📍 ${a.location}</span>
+        <span class="meta">${timeAgo(a.created_at)}</span>
+        <span class="upvotes">▲ ${a.upvote_count || 0}</span>
+        ${isExpired ? '<span class="expired-label">Expired</span>' : ''}
+        <div class="card-actions">
+          <a href="/alert/${a.id}" class="view-btn">View</a>
+          ${!isExpired ? `<button class="delete-btn" onclick="deleteAlert(${a.id})">Delete</button>` : ''}
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+loadMyAlerts();
+</script>
+
+</body>
+</html>
+
+</body>

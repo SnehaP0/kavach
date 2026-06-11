@@ -10,7 +10,20 @@
     #map { height: 100vh; width: 100%; }
   </style>
 </head>
-<body>
+<body id="mapi">
+    <nav id="map-nav">
+  <div style="display:flex;align-items:center;gap:0.5rem;">
+    <div class="logo">Kav<span>ach</span></div>
+  </div>
+  <div class="nav-links">
+    <a href="/map">Map</a>
+    <a href="/alerts">Alerts</a>
+    <a href="/dashboard" class="active">My Alerts</a>
+  </div>
+  <div class="nav-right">
+    <a href="/logout" class="logout-link">Logout</a>
+  </div>
+</nav>
   <div id="map"></div>
     <button type="button" id="rprt">REPORT</button>
     <div id="form" class="hidden">

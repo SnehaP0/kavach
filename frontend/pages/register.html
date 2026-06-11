@@ -1,14 +1,57 @@
+
 <!DOCTYPE html>
 <html>
-<head><title>Kavach Register</title></head>
+<head>
+  <title>Kavach</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:sans-serif;background:#0a0f0d;color:#e8f0eb;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:1.5rem;}
+.top-logo{font-weight:800;font-size:1.1rem;color:#4ade80;margin-bottom:2rem;}
+.top-logo span{color:#e8f0eb;}
+.card{background:#0f1a14;border:0.5px solid rgba(255,255,255,0.08);border-radius:16px;padding:2rem;width:100%;max-width:380px;}
+.card-icon{width:44px;height:44px;background:rgba(74,222,128,0.1);border:0.5px solid rgba(74,222,128,0.2);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1.2rem;margin-bottom:1.2rem;}
+.card-title{font-size:1.3rem;font-weight:700;color:#f0f7f2;margin-bottom:0.35rem;}
+.card-sub{font-size:0.82rem;color:rgba(255,255,255,0.35);margin-bottom:1.5rem;line-height:1.5;}
+.form-group{margin-bottom:1rem;}
+label{display:block;font-size:0.78rem;color:rgba(255,255,255,0.45);margin-bottom:0.35rem;}
+input{width:100%;background:#0a0f0d;border:0.5px solid rgba(255,255,255,0.1);border-radius:8px;padding:0.65rem 0.9rem;color:#e8f0eb;font-size:0.88rem;font-family:sans-serif;outline:none;transition:border-color 0.15s;}
+input:focus{border-color:rgba(74,222,128,0.4);}
+input::placeholder{color:rgba(255,255,255,0.2);}
+.submit-btn{width:100%;background:#4ade80;color:#0a0f0d;border:none;padding:0.75rem;border-radius:8px;font-size:0.9rem;font-weight:600;cursor:pointer;margin-top:0.5rem;}
+.submit-btn:hover{opacity:0.85;}
+.divider{display:flex;align-items:center;gap:0.75rem;margin:1.2rem 0;}
+.divider-line{flex:1;height:0.5px;background:rgba(255,255,255,0.08);}
+.divider-text{font-size:0.72rem;color:rgba(255,255,255,0.25);}
+.footer-link{text-align:center;font-size:0.8rem;color:rgba(255,255,255,0.35);}
+.footer-link a{color:#4ade80;text-decoration:none;}
+.kiit-note{background:rgba(74,222,128,0.05);border:0.5px solid rgba(74,222,128,0.15);border-radius:8px;padding:0.6rem 0.85rem;font-size:0.75rem;color:rgba(74,222,128,0.6);margin-bottom:1.2rem;}
+.hint{font-size:0.72rem;color:rgba(255,255,255,0.2);margin-top:0.3rem;}
+</style>
+</head>
 <body>
-  <h1>Register for Kavach</h1>
-  <form action="/api/auth/register" method="POST">
-    <input type="text" name="name" placeholder="Full Name" required/><br><br>
-    <input type="email" name="username" placeholder="KIIT Email (@kiit.ac.in)" required/><br><br>
-    <input type="password" name="password" placeholder="Password" required/><br><br>
-    <button type="submit">Register</button>
-  </form>
-  <p>Already have an account? <a href="/login">Login</a></p>
+<div class="top-logo">Kav<span>ach</span></div>
+<div class="card">
+  <div class="card-icon">🛡️</div>
+  <div class="card-title">Create account</div>
+  <div class="card-sub">Join Kavach to report and stay informed about campus safety alerts.</div>
+  <div class="kiit-note">🎓 Only KIIT email addresses (@kiit.ac.in) are allowed</div>
+  <div class="form-group">
+    <label>Full Name</label>
+    <input type="text" placeholder="Your full name" id="name"/>
+  </div>
+  <div class="form-group">
+    <label>KIIT Email</label>
+    <input type="email" placeholder="@kiit.ac.in" id="mail"/>
+  </div>
+  <div class="form-group">
+    <label>Password</label>
+    <input type="password" placeholder="Create a strong password" id="pass"/>
+   
+  </div>
+  <button class="submit-btn" id="cr">Create account</button>
+  <div class="divider"><div class="divider-line"></div><div class="divider-text">or</div><div class="divider-line"></div></div>
+  <div class="footer-link">Already have an account? <a href="#">Sign in</a></div>
+</div>
+ <script src="../js/register.js"></script>
 </body>
 </html>

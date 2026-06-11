@@ -116,6 +116,9 @@ app.get("/dashboard", isAuthenticated, (req, res) => {
 app.get("/map",isAuthenticated, (req, res) => {
     res.sendFile(path.join(__dirname, "../frontend/pages/map.html"));
 });
+app.get('/alerts', isAuthenticated, (req, res) => {
+    res.sendFile(path.join(__dirname, '../frontend/pages/alerts.html'));
+});
 app.get('/api/alerts/my', isAuthenticated, async (req, res) => {
     try{
         const alerts = await pool.query(
@@ -270,7 +273,7 @@ app.post("/api/auth/register",async (req,res)=>{
                 const user=result.rows[0];
                 req.logIn(user,(err)=>{
                     if(err){return res.send(err);}
-                    res.redirect("/dashboard")
+                    res.status(200).json({ message: "Account created successfully" });
                 });
             });
         }
