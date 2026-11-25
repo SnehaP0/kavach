@@ -1,3 +1,4 @@
+import { socket } from './socket.js';
 const map = L.map('map', {minZoom:2}).setView([20.3549, 85.8198], 15);
 L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
     attribution: 'Tiles &copy; Esri',
@@ -39,6 +40,7 @@ const campus=[
     
       
 ];
+const alertLayer = L.layerGroup().addTo(map);
 campus.forEach(build=>{
     L.marker([build.lat,build.lng])
     .addTo(map)
@@ -50,26 +52,29 @@ campus.forEach(build=>{
     });
 
 });
-async function loadalert(){
+export async function loadalert(){
     try{
         const res=await fetch('/api/alerts');
         if(!res.ok){
             throw new Error('HTTP error!');}
             const data=await res.json();
+            alertLayer.clearLayers();
             data.forEach(alerts=>{
                 const icons = {
         'Emergency': '🚨',
         'nonemergency': '⚠️'
     };
-    
     const alertIcon = L.divIcon({
-        html: icons[alerts.type] || '📍',
+        html: `<div style="font-size:24px;">${icons[alerts.type] || '📍'}</div>`,
+        className: '', // avoid default leaflet divIcon styling
         iconSize: [30, 30],
-        className: 'custom-marker'
+        iconAnchor: [15, 15]
     });
+
+    
     
     L.marker([alerts.latitude, alerts.longitude], { icon: alertIcon })
-        .addTo(map)
+        .addTo(alertLayer)
         .bindPopup(`<b>${alerts.title}</b><br>${alerts.remarks}`);
             });
         }catch(error){
@@ -78,6 +83,21 @@ async function loadalert(){
         }
     }
 loadalert();
+
+socket.on('receive-alert', (data) => {
+    console.log('New alert received:', data);
+    loadalert();
+});
+
+socket.on('alert-expired', (data) => {
+    console.log('Alert expired:', data.id);
+    loadalert();
+});
+
+socket.on('alert-deleted', (data) => {
+    console.log('Alert deleted:', data.id);
+    loadalert();
+});
 function frm(){
     if(frmtrue==true){
     document.getElementById("form").classList.toggle("hidden");
@@ -102,12 +122,25 @@ var temp=L.marker([lat,lng]).addTo(map);
 
 async function sub(e){
     e.preventDefault();
-    const utitle=document.getElementById("title").value;
-    const utype=document.querySelector('input[name="type"]:checked').value;
-    const uloacation=document.getElementById("location").value;
-    const uremarks=document.getElementById("remarks").value;
-    const ustatus=document.querySelector('input[name="status"]:checked').value;
-    const userData={title:utitle,type:utype,location:uloacation,remarks:uremarks,status:ustatus,latitude:lat,longitude:lng};
+
+    const utitle = document.getElementById("title").value.trim();
+    const utypeEl = document.querySelector('input[name="type"]:checked');
+    const uloacation = document.getElementById("location").value.trim();
+    const uremarks = document.getElementById("remarks").value.trim();
+    const ustatusEl = document.querySelector('input[name="status"]:checked');
+    const errorEl = document.getElementById("formError");
+
+    if (!utitle || !utypeEl || !uloacation || !uremarks || !ustatusEl || !lat || !lng) {
+        errorEl.textContent = "Please fill in all fields and select a location on the map.";
+        errorEl.classList.remove("hidden");
+        return;
+    }
+    errorEl.classList.add("hidden");
+
+    const utype = utypeEl.value;
+    const ustatus = ustatusEl.value;
+    const userData = { title: utitle, type: utype, location: uloacation, remarks: uremarks, status: ustatus, latitude: lat, longitude: lng };
+    
     try{
         const response= await fetch('/api/alerts',{
             method:'POST',
@@ -126,6 +159,8 @@ async function sub(e){
             }
         catch(error){
             console.log('Error:',error);
+            errorEl.textContent = "Something went wrong submitting your report.";
+            errorEl.classList.remove("hidden");
         }
 }
 document.getElementById("submit").addEventListener("click",sub);

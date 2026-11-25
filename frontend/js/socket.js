@@ -1,6 +1,5 @@
+export const socket = io();
 
-const socket=io();
-socket.on('receive-alert',(data)=>{
-    console.log('New alert received:', data);
-    loadalert();
+socket.on('connect', () => {
+    console.log('Connected to server');
 });

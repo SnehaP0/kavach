@@ -11,7 +11,10 @@ import path from "path";
 import { fileURLToPath } from "url";
 import cron from 'node-cron';
 
+const FLAG_LIMIT = 5;
+
 const app=express();
+app.set("trust proxy", 1);
 app.use(express.json()); 
 
 const server = http.createServer(app);
@@ -90,12 +93,34 @@ function isAuthenticated(req, res, next){
     res.redirect("/login");
 }
 
+function noCache(req, res, next) {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+    next();
+}
 
 cron.schedule('0 * * * *', async () => {
-    await pool.query(
-        "DELETE FROM alerts WHERE expires_at < NOW()"
-    );
-    console.log('Expired alerts cleaned up');
+    console.log('🕐 Cron fired at', new Date().toISOString());
+    try {
+        const expired = await pool.query(
+            "SELECT id FROM alerts WHERE expires_at < NOW()"
+        );
+        const ids = expired.rows.map(r => r.id);
+
+        if (ids.length > 0) {
+            await pool.query('DELETE FROM comments WHERE alert_id = ANY($1)', [ids]);
+            await pool.query('DELETE FROM upvotes WHERE alert_id = ANY($1)', [ids]);
+            await pool.query('DELETE FROM flags WHERE alert_id = ANY($1)', [ids]);
+            await pool.query('DELETE FROM alerts WHERE id = ANY($1)', [ids]);
+
+            ids.forEach(id => io.emit('alert-expired', { id }));
+        }
+
+        console.log(`Expired alerts cleaned up: ${ids.length}`);
+    } catch (err) {
+        console.error('Cron cleanup error:', err);
+    }
 });
 
 app.get("/", (req, res) => {
@@ -109,14 +134,16 @@ app.get("/login", (req, res) => {
 app.get("/register", (req, res) => {
     res.sendFile(path.join(__dirname, "../frontend/pages/register.html"));
 });
-app.get("/dashboard", isAuthenticated, (req, res) => {
+app.get("/dashboard",noCache, isAuthenticated, (req, res) => {
     res.sendFile(path.join(__dirname, "../frontend/pages/dashboard.html"));
 });
-
-app.get("/map",isAuthenticated, (req, res) => {
+app.get("/alert/:id", noCache, isAuthenticated, (req, res) => {
+    res.sendFile(path.join(__dirname, "../frontend/pages/alert.html"));
+});
+app.get("/map",noCache,isAuthenticated, (req, res) => {
     res.sendFile(path.join(__dirname, "../frontend/pages/map.html"));
 });
-app.get('/alerts', isAuthenticated, (req, res) => {
+app.get('/alerts',noCache, isAuthenticated, (req, res) => {
     res.sendFile(path.join(__dirname, '../frontend/pages/alerts.html'));
 });
 app.get('/api/alerts/my', isAuthenticated, async (req, res) => {
@@ -151,12 +178,24 @@ app.post("/api/alerts", isAuthenticated, async (req,res)=>{
     const user_id=req.user.id;
     const status = 'active';
     const qer = await pool.query('INSERT INTO alerts (title, type, location, latitude, longitude, remarks, status, user_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *',[title, type, location, latitude, longitude, remarks, status, user_id,]);
-    res.json(qer.rows[0]);
     const io = req.app.get('io');
+    res.json(qer.rows[0]);
     io.emit('receive-alert', qer.rows[0]);
     }
     catch(err){
         res.status(500).json({error:err.message});
+    }
+});
+app.get("/api/alerts/:id/comments", isAuthenticated, async (req, res) => {
+    try {
+        const i = req.params.id;
+        const comments = await pool.query(
+            'SELECT comments.*, users.name FROM comments JOIN users ON comments.user_id = users.id WHERE alert_id=$1 ORDER BY created_at ASC',
+            [i]
+        );
+        res.json(comments.rows);
+    } catch(err) {
+        res.status(500).json({error: err.message});
     }
 });
 app.get("/api/alerts/:id", isAuthenticated,async (req,res)=>{
@@ -177,6 +216,9 @@ app.get("/api/alerts/:id", isAuthenticated,async (req,res)=>{
 
 app.delete("/api/alerts/:id",isAuthenticated,async (req,res)=>{
    try{ const i=req.params.id;
+      await pool.query('DELETE FROM comments WHERE alert_id=$1', [i]);
+        await pool.query('DELETE FROM upvotes WHERE alert_id=$1', [i]);
+        await pool.query('DELETE FROM flags WHERE alert_id=$1', [i]);
     const qer=await pool.query('DELETE FROM alerts WHERE id=$1',[i]);
     if(qer.rowCount === 0){
         return res.status(404).json({error: "Alert not found"});
@@ -186,7 +228,7 @@ app.delete("/api/alerts/:id",isAuthenticated,async (req,res)=>{
     });
     }
     catch(err){
-        res.status(505).json({error:err.message});
+        res.status(500).json({error:err.message});
     }
 });
 
@@ -223,11 +265,20 @@ app.post("/api/alerts/:id/flag",isAuthenticated,async (req,res)=>{
         await pool.query('UPDATE alerts SET flag_count=flag_count+1 WHERE id=$1',[i]);
 
          }
-         const al=await pool.query('SELECT flag_count FROM alerts WHERE id=$1',[i]);
-         const count=al.rows[0].flag_count;
-         if(count>=5){
-        await pool.query("UPDATE alerts SET status='under_review' WHERE id=$1",[i]);}
-         res.json({message: "flag updated", flag_count: count});
+        const al = await pool.query('SELECT flag_count FROM alerts WHERE id=$1', [i]);
+const count = al.rows[0].flag_count;
+
+if (count >= 5) {
+    await pool.query('DELETE FROM comments WHERE alert_id=$1', [i]);
+    await pool.query('DELETE FROM upvotes WHERE alert_id=$1', [i]);
+    await pool.query('DELETE FROM flags WHERE alert_id=$1', [i]);
+    await pool.query('DELETE FROM alerts WHERE id=$1', [i]);
+    const io = req.app.get('io');
+    io.emit('alert-expired', { id: Number(i) });
+    return res.json({ message: "alert removed due to flags", deleted: true });
+}
+
+res.json({ message: "flag updated", flag_count: count, deleted: false });
     
     }catch(err){
         res.status(500).json({error:err.message});
@@ -245,10 +296,18 @@ app.post("/api/alerts/:id/comments",isAuthenticated, async (req,res)=>{
         res.status(500).json({error: err.message});
     }
 });
-app.post("/api/auth/login",passport.authenticate("local",{
-    successRedirect:"/dashboard",
-    failureRedirect:"/login"
-}));
+app.post("/api/auth/login", (req, res, next) => {
+  passport.authenticate("local", (err, user, info) => {
+    if (err) return res.status(500).json({ error: "Server error" });
+    if (!user) {
+      return res.status(401).json({ error: info?.message || "Invalid email or password" });
+    }
+    req.logIn(user, (err) => {
+      if (err) return next(err);
+      res.json({ message: "Logged in" });
+    });
+  })(req, res, next);
+});
 
 app.post("/api/auth/register",async (req,res)=>{
     console.log(req.body);
@@ -290,5 +349,5 @@ app.get('/logout', function(req, res, next){
 });
 
 server.listen(port, () => {
-  console.log("Server running on port 5000");
+  console.log("Server running on port", port);
 });
