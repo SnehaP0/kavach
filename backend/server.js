@@ -251,6 +251,12 @@ app.patch("/api/alerts/:id/upvote",isAuthenticated,async (req,res)=>{
         res.status(500).json({error:err.message});
     }
 });
+app.get("/api/auth/me", (req, res) => {
+  if (!req.isAuthenticated()) {
+    return res.status(401).json({ error: "Not logged in" });
+  }
+  res.json({ id: req.user.id, name: req.user.name, email: req.user.email });
+});
 app.post("/api/alerts/:id/flag",isAuthenticated,async (req,res)=>{
     try{
         const i=req.params.id;

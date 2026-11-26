@@ -172,6 +172,20 @@ async function flg(e){
         console.log('Error:', error);
     }
 }
+async function loadUser() {
+  try {
+    const res = await fetch("/api/auth/me");
+    if (res.status === 401) {
+      window.location.href = "login.html";
+      return;
+    }
+    const user = await res.json();
+    document.getElementById("userName").textContent = ", " + user.name;
+  } catch (err) {
+    console.error(err);
+  }
+}
+loadUser();
 document.getElementById("sub").addEventListener("click",sub);
 document.getElementById("up").addEventListener("click",upvote);
 document.getElementById("flag").addEventListener("click",flg);
